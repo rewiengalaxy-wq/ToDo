@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>ToDo</title>
+<style>
+  :root {
+    --bg: #F5F6F1;
+    --card: #FFFFFF;
+    --ink: #1D2A26;
+    --muted: #66746F;
+    --line: #E3E6DE;
+    --primary: #1E6B57;
+    --primary-soft: #E2EFEA;
+    --accent: #F2C14E;
+    --danger: #B8402F;
+    --danger-soft: #F8E5E1;
+    --radius: 18px;
+    --shadow: 0 1px 2px rgba(20,40,30,.06), 0 4px 14px rgba(20,40,30,.06);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: Roboto, "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: 17px; line-height: 1.35;
+    -webkit-user-select: none; user-select: none;
+    overscroll-behavior: none;
+  }
+  input, textarea { -webkit-user-select: text; user-select: text; }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  .hidden { display: none !important; }
+  svg { display: block; }
+
+  /* ---------- hoofdscherm ---------- */
+  #app { min-height: 100%; padding: 18px 16px 120px; max-width: 560px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 12px; padding: 4px 4px 14px; }
+  .logo { width: 44px; height: 44px; border-radius: 13px; background: var(--primary); display: grid; place-items: center; flex: none; position: relative; }
+  .logo::after { content: ""; position: absolute; top: -3px; right: -3px; width: 13px; height: 13px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg); }
+  header h1 { margin: 0; font-size: 26px; letter-spacing: -.3px; }
+  header .sub { color: var(--muted); font-size: 15px; margin-top: 1px; }
+
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; background: #E8EBE3; border-radius: 14px; padding: 4px; margin-bottom: 16px; }
+  .tab { height: 46px; border-radius: 11px; font-weight: 600; color: var(--muted); font-size: 16px; }
+  .tab.active { background: var(--card); color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .tab .count { display: inline-block; min-width: 22px; padding: 0 6px; height: 22px; line-height: 22px; border-radius: 11px; background: var(--primary-soft); color: var(--primary); font-size: 13px; margin-left: 6px; }
+
+  .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); }
+
+  /* kalender */
+  .cal { padding: 10px 10px 12px; margin-bottom: 18px; }
+  .cal-head { display: flex; align-items: center; justify-content: space-between; padding: 2px 2px 8px; }
+  .cal-head .month { font-weight: 700; font-size: 18px; text-transform: capitalize; }
+  .iconbtn { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; color: var(--primary); }
+  .iconbtn:active { background: var(--primary-soft); }
+  .todaybtn { height: 36px; padding: 0 14px; border-radius: 18px; background: var(--primary-soft); color: var(--primary); font-weight: 600; font-size: 14px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .dow { text-align: center; font-size: 12px; font-weight: 600; color: var(--muted); padding: 4px 0 6px; text-transform: uppercase; letter-spacing: .4px; }
+  .day { position: relative; height: 46px; border-radius: 12px; font-size: 16px; font-weight: 500; display: grid; place-items: center; }
+  .day.other { color: #B4BDB8; }
+  .day.today { color: var(--primary); font-weight: 800; box-shadow: inset 0 0 0 2px var(--primary); }
+  .day.sel { background: var(--primary); color: #fff; font-weight: 700; box-shadow: none; }
+  .day .dot { position: absolute; bottom: 6px; left: 50%; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--accent); }
+  .day .dot.done { background: #A9C9BE; }
+  .day.sel .dot { background: #fff; }
+
+  .section-title { display: flex; align-items: baseline; justify-content: space-between; margin: 4px 6px 10px; }
+  .section-title h2 { margin: 0; font-size: 19px; }
+  .section-title span { color: var(--muted); font-size: 14px; }
+  .group-date { margin: 20px 6px 8px; font-weight: 700; font-size: 15px; color: var(--primary); }
+  .group-date:first-child { margin-top: 2px; }
+  .group-date small { color: var(--muted); font-weight: 500; margin-left: 6px; }
+
+  /* items */
+  .list { display: flex; flex-direction: column; gap: 10px; }
+  .item { display: flex; align-items: stretch; min-height: 72px; overflow: hidden; transition: opacity .3s; }
+  .check { flex: none; width: 64px; display: grid; place-items: center; }
+  .box { width: 30px; height: 30px; border-radius: 9px; border: 2.5px solid #9DB3AA; display: grid; place-items: center; transition: background .15s, border-color .15s; }
+  .item.done .box { background: var(--primary); border-color: var(--primary); }
+  .box svg { opacity: 0; transform: scale(.6); transition: .15s; }
+  .item.done .box svg { opacity: 1; transform: none; }
+  .body { flex: 1; min-width: 0; padding: 13px 14px 13px 0; text-align: left; display: flex; gap: 12px; align-items: center; }
+  .time { flex: none; width: 58px; font-weight: 700; font-size: 16px; color: var(--primary); }
+  .time.allday { font-size: 12.5px; font-weight: 700; line-height: 1.15; color: #8A6A12; background: #FBF1D6; border-radius: 8px; padding: 5px 6px; text-align: center; }
+  .txt { min-width: 0; flex: 1; }
+  .title { font-weight: 600; font-size: 17px; overflow-wrap: anywhere; }
+  .item.done .title { text-decoration: line-through; text-decoration-thickness: 2px; color: var(--muted); }
+  .item.done .time { color: var(--muted); }
+  .meta { color: var(--muted); font-size: 14px; margin-top: 3px; display: flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta svg { flex: none; }
+  .meta span { overflow: hidden; text-overflow: ellipsis; }
+  .chev { flex: none; color: #B4BDB8; }
+
+  .empty { text-align: center; color: var(--muted); padding: 28px 20px; border: 2px dashed var(--line); border-radius: var(--radius); font-size: 15.5px; }
+  .empty b { display: block; color: var(--ink); font-size: 17px; margin-bottom: 4px; }
+
+  .fab { position: fixed; right: 20px; bottom: 24px; width: 68px; height: 68px; border-radius: 22px; background: var(--primary); color: #fff; display: grid; place-items: center; box-shadow: 0 6px 18px rgba(30,107,87,.38); z-index: 5; }
+  .fab:active { transform: scale(.96); }
+
+  /* ---------- lagen (editor, kiezers, dialogen) ---------- */
+  .layer { position: fixed; inset: 0; z-index: 20; }
+  .scrim { position: absolute; inset: 0; background: rgba(20,30,26,.42); animation: fade .15s; }
+  @keyframes fade { from { opacity: 0; } }
+  @keyframes up { from { transform: translateY(24px); opacity: 0; } }
+
+  .editor { position: absolute; inset: 0; background: var(--bg); display: flex; flex-direction: column; animation: up .18s; }
+  .bar { flex: none; display: flex; align-items: center; gap: 6px; padding: 10px 10px; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .bar h3 { flex: 1; margin: 0; font-size: 19px; }
+  .savebtn { height: 46px; padding: 0 22px; border-radius: 14px; background: var(--primary); color: #fff; font-weight: 700; }
+  .form { flex: 1; overflow-y: auto; padding: 16px 16px 40px; -webkit-overflow-scrolling: touch; }
+  .form-inner { max-width: 560px; margin: 0 auto; }
+  label.lbl { display: block; font-size: 14px; font-weight: 600; color: var(--muted); margin: 0 4px 6px; }
+  .field { margin-bottom: 16px; }
+  .inp { width: 100%; min-height: 54px; padding: 14px 16px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--card); font: inherit; color: var(--ink); outline: none; }
+  .inp:focus { border-color: var(--primary); }
+  textarea.inp { min-height: 110px; resize: vertical; }
+  .inp.error { border-color: var(--danger); }
+  .err { color: var(--danger); font-size: 14px; margin: 6px 4px 0; }
+  .pick { display: flex; align-items: center; gap: 12px; text-align: left; }
+  .pick .v { flex: 1; font-weight: 600; }
+  .pick svg { color: var(--primary); flex: none; }
+  .row2 { display: grid; grid-template-columns: 1fr; gap: 0; }
+  .switchrow { display: flex; align-items: center; justify-content: space-between; min-height: 58px; padding: 0 16px; margin-bottom: 16px; width: 100%; }
+  .switchrow .l { font-weight: 600; text-align: left; }
+  .switchrow .l small { display: block; color: var(--muted); font-weight: 400; font-size: 13.5px; }
+  .sw { width: 54px; height: 32px; border-radius: 16px; background: #CDD5D0; position: relative; transition: background .15s; flex: none; }
+  .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: left .15s; }
+  .sw.on { background: var(--primary); }
+  .sw.on::after { left: 25px; }
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
+  .btn { height: 54px; border-radius: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn.share { background: var(--primary-soft); color: var(--primary); }
+  .btn.del { background: var(--danger-soft); color: var(--danger); }
+  .btn.primary { background: var(--primary); color: #fff; }
+  .btn.ghost { background: #ECEFE8; }
+  .btn.danger { background: var(--danger); color: #fff; }
+
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; max-height: 92%; overflow-y: auto; background: var(--card); border-radius: 24px 24px 0 0; padding: 10px 16px 20px; animation: up .18s; max-width: 560px; margin: 0 auto; }
+  .grab { width: 40px; height: 5px; border-radius: 3px; background: #D5DBD7; margin: 0 auto 10px; }
+  .sheet h4 { margin: 4px 4px 12px; font-size: 18px; }
+
+  .tp-display { text-align: center; font-size: 46px; font-weight: 800; letter-spacing: 1px; color: var(--primary); margin: 0 0 8px; font-variant-numeric: tabular-nums; }
+  .tp-label { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin: 10px 4px 6px; }
+  .tp-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .tp-cell { height: 46px; border-radius: 12px; background: #F0F2EC; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tp-cell.on { background: var(--primary); color: #fff; }
+  .tp-fine { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 10px; }
+  .tp-fine button { height: 44px; padding: 0 18px; border-radius: 12px; background: #F0F2EC; font-weight: 700; }
+  .tp-fine span { color: var(--muted); font-size: 14px; }
+  .sheet .actions { margin-top: 18px; }
+
+  .dialog { position: absolute; left: 20px; right: 20px; top: 50%; transform: translateY(-50%); background: var(--card); border-radius: 22px; padding: 22px 20px 18px; max-width: 420px; margin: 0 auto; animation: fade .15s; }
+  .dialog h4 { margin: 0 0 8px; font-size: 20px; }
+  .dialog p { margin: 0; color: var(--muted); }
+  .dialog .what { margin: 14px 0 4px; padding: 12px 14px; border-radius: 14px; background: var(--danger-soft); }
+  .dialog .what b { display: block; color: var(--ink); font-size: 17px; overflow-wrap: anywhere; }
+  .dialog .what span { font-size: 14px; color: var(--muted); }
+
+  .toast { position: fixed; left: 16px; right: 16px; bottom: 104px; margin: 0 auto; max-width: 460px; background: #22302B; color: #fff; border-radius: 14px; padding: 6px 6px 6px 18px; min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 10px; z-index: 40; animation: up .18s; box-shadow: 0 6px 20px rgba(0,0,0,.2); }
+  .toast button { color: #9FE0C8; font-weight: 700; height: 42px; padding: 0 14px; border-radius: 10px; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <div class="logo" aria-hidden="true">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+    </div>
+    <div style="flex:1">
+      <h1>ToDo</h1>
+      <div class="sub" id="todayLabel"></div>
+    </div>
+    <button class="todaybtn" id="goToday">Vandaag</button>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab active" id="tabAgenda" role="tab">Agenda</button>
+    <button class="tab" id="tabKomend" role="tab">Komend<span class="count" id="komendCount">0</span></button>
+  </div>
+
+  <section id="viewAgenda">
+    <div class="card cal" id="mainCal"></div>
+    <div class="section-title"><h2 id="dayTitle"></h2><span id="dayCount"></span></div>
+    <div class="list" id="dayList"></div>
+  </section>
+
+  <section id="viewKomend" class="hidden">
+    <div id="komendList"></div>
+  </section>
+</div>
+
+<button class="fab" id="fab" aria-label="Nieuwe taak of afspraak">
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+
+<div id="layers"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ================= hulpfuncties ================= */
+  var DAGEN = ['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'];
+  var DOW_KORT = ['ma','di','wo','do','vr','za','zo'];
+  var MAANDEN = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  // Datums worden als tekst "JJJJ-MM-DD" bewaard: geen tijdzone-omrekening.
+  function toKey(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function fromKey(k) { var p = k.split('-'); return new Date(+p[0], +p[1] - 1, +p[2], 12, 0, 0); }
+  function todayKey() { return toKey(new Date()); }
+  function addDays(k, n) { var d = fromKey(k); d.setDate(d.getDate() + n); return toKey(d); }
+  function dagNaam(k) { return DAGEN[fromKey(k).getDay()]; }
+  function datumLang(k, metJaar) {
+    var d = fromKey(k);
+    return DAGEN[d.getDay()] + ' ' + d.getDate() + ' ' + MAANDEN[d.getMonth()] + (metJaar ? ' ' + d.getFullYear() : '');
+  }
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  function relatief(k) {
+    var t = todayKey();
+    if (k === t) return 'Vandaag';
+    if (k === addDays(t, 1)) return 'Morgen';
+    if (k === addDays(t, -1)) return 'Gisteren';
+    return '';
+  }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+  function $(id) { return document.getElementById(id); }
+
+  var ICON = {
+    check: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    pin: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
+    note: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 6h14M5 12h14M5 18h9"/></svg>',
+    chev: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+    left: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>',
+    right: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+    close: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    cal: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
+    clock: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+    share: '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="M8.2 10.8l7.6-4.1M8.2 13.2l7.6 4.1"/></svg>',
+    trash: '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/></svg>'
+  };
+
+  /* ================= opslag (lokaal, offline) ================= */
+  var Store = {
+    load: function () {
+      var raw = '';
+      try {
+        raw = window.AndroidBridge ? window.AndroidBridge.load() : (localStorage.getItem('todo.data') || '');
+      } catch (e) { raw = ''; }
+      if (!raw) return [];
+      try {
+        var data = JSON.parse(raw);
+        var items = Array.isArray(data) ? data : (data.items || []);
+        return items.filter(function (x) { return x && x.id && x.title && /^\d{4}-\d{2}-\d{2}$/.test(x.date); });
+      } catch (e) { return []; }
+    },
+    save: function (items) {
+      var json = JSON.stringify({ version: 1, items: items });
+      try {
+        if (window.AndroidBridge) window.AndroidBridge.save(json);
+        else localStorage.setItem('todo.data', json);
+      } catch (e) { toast('Opslaan is niet gelukt'); }
+    }
+  };
+
+  var items = Store.load();
+  function persist() { Store.save(items); }
+  function byId(id) { for (var i = 0; i < items.length; i++) if (items[i].id === id) return items[i]; return null; }
+
+  function sortItems(list) {
+    return list.slice().sort(function (a, b) {
+      if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+      if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
+      var ta = a.allDay ? '' : a.time, tb = b.allDay ? '' : b.time;
+      if (ta !== tb) return ta < tb ? -1 : 1;
+      return (a.created || 0) - (b.created || 0);
+    });
+  }
+
+  /* ================= status ================= */
+  var state = {
+    view: 'agenda',
+    selected: todayKey(),
+    month: todayKey().slice(0, 7) // "JJJJ-MM"
+  };
+  var lastToday = todayKey();
+
+  /* ================= kalender (gedeeld door agenda en datumkiezer) ================= */
+  function renderCalendar(el, opts) {
+    // opts: month "JJJJ-MM", selected key, onPick(key), onMonth(newMonth), dots(bool)
+    var y = +opts.month.slice(0, 4), m = +opts.month.slice(5, 7) - 1;
+    var first = new Date(y, m, 1, 12);
+    var offset = (first.getDay() + 6) % 7; // maandag = 0
+    var start = new Date(y, m, 1 - offset, 12);
+    var tk = todayKey();
+    var counts = {};
+    if (opts.dots) items.forEach(function (it) {
+      var c = counts[it.date] || (counts[it.date] = { open: 0, done: 0 });
+      it.done ? c.done++ : c.open++;
+    });
+
+    var h = '<div class="cal-head">' +
+      '<button class="iconbtn" data-nav="-1" aria-label="Vorige maand">' + ICON.left + '</button>' +
+      '<div class="month">' + MAANDEN[m] + ' ' + y + '</div>' +
+      '<button class="iconbtn" data-nav="1" aria-label="Volgende maand">' + ICON.right + '</button></div>' +
+      '<div class="cal-grid">';
+    DOW_KORT.forEach(function (d) { h += '<div class="dow">' + d + '</div>'; });
+    for (var i = 0; i < 42; i++) {
+      var d = new Date(start); d.setDate(start.getDate() + i);
+      var k = toKey(d);
+      var cls = 'day';
+      if (d.getMonth() !== m) cls += ' other';
+      if (k === tk) cls += ' today';
+      if (k === opts.selected) cls += ' sel';
+      var dot = '';
+      if (counts[k]) dot = '<i class="dot' + (counts[k].open ? '' : ' done') + '"></i>';
+      h += '<button class="' + cls + '" data-day="' + k + '">' + d.getDate() + dot + '</button>';
+    }
+    h += '</div>';
+    el.innerHTML = h;
+
+    el.onclick = function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.nav) {
+        var nd = new Date(y, m + (+b.dataset.nav), 1, 12);
+        opts.onMonth(nd.getFullYear() + '-' + pad(nd.getMonth() + 1));
+      } else if (b.dataset.day) {
+        opts.onPick(b.dataset.day);
+      }
+    };
+  }
+
+  /* ================= hoofdscherm tekenen ================= */
+  function itemHtml(it, opts) {
+    var time = it.allDay
+      ? '<div class="time allday">Hele dag</div>'
+      : '<div class="time">' + esc(it.time) + '</div>';
+    var meta = '';
+    if (it.location) meta += '<div class="meta">' + ICON.pin + '<span>' + esc(it.location) + '</span></div>';
+    else if (it.note) meta += '<div class="meta">' + ICON.note + '<span>' + esc(it.note.split('\n')[0]) + '</span></div>';
+    return '<div class="card item' + (it.done ? ' done' : '') + '" data-id="' + it.id + '">' +
+      '<button class="check" data-act="toggle" aria-label="' + (it.done ? 'Weer openzetten' : 'Afvinken') + '"><span class="box">' + ICON.check + '</span></button>' +
+      '<button class="body" data-act="open">' + time +
+      '<div class="txt"><div class="title">' + esc(it.title) + '</div>' + meta + '</div>' +
+      '<span class="chev">' + ICON.chev + '</span></button></div>';
+  }
+
+  function render() {
+    var tk = todayKey();
+    $('todayLabel').textContent = cap(datumLang(tk, false));
+
+    var upcoming = sortItems(items.filter(function (x) { return !x.done && x.date >= tk; }));
+    $('komendCount').textContent = upcoming.length;
+
+    $('tabAgenda').classList.toggle('active', state.view === 'agenda');
+    $('tabKomend').classList.toggle('active', state.view === 'komend');
+    $('viewAgenda').classList.toggle('hidden', state.view !== 'agenda');
+    $('viewKomend').classList.toggle('hidden', state.view !== 'komend');
+
+    if (state.view === 'agenda') {
+      renderCalendar($('mainCal'), {
+        month: state.month, selected: state.selected, dots: true,
+        onPick: function (k) { state.selected = k; render(); },
+        onMonth: function (mo) { state.month = mo; render(); }
+      });
+      var rel = relatief(state.selected);
+      $('dayTitle').textContent = rel ? rel + ', ' + datumLang(state.selected, false) : cap(datumLang(state.selected, false));
+      var dayItems = sortItems(items.filter(function (x) { return x.date === state.selected; }));
+      var open = dayItems.filter(function (x) { return !x.done; }).length;
+      $('dayCount').textContent = dayItems.length ? (open ? open + ' open' : 'alles klaar ✓') : '';
+      $('dayList').innerHTML = dayItems.length
+        ? dayItems.map(function (x) { return itemHtml(x); }).join('')
+        : '<div class="empty"><b>Niets gepland</b>Tik op de plusknop om een taak of afspraak voor deze dag toe te voegen.</div>';
+    } else {
+      if (!upcoming.length) {
+        $('komendList').innerHTML = '<div class="empty"><b>Alles is afgerond</b>Er staan geen openstaande taken of afspraken vanaf vandaag.</div>';
+      } else {
+        var h = '', cur = '';
+        upcoming.forEach(function (x) {
+          if (x.date !== cur) {
+            if (cur) h += '</div>';
+            cur = x.date;
+            var r = relatief(cur);
+            h += '<div class="group-date">' + cap(datumLang(cur, fromKey(cur).getFullYear() !== new Date().getFullYear())) + (r ? '<small>' + r + '</small>' : '') + '</div><div class="list">';
+          }
+          h += itemHtml(x);
+        });
+        h += '</div>';
+        $('komendList').innerHTML = h;
+      }
+    }
+  }
+
+  function onListClick(e) {
+    var b = e.target.closest('button[data-act]'); if (!b) return;
+    var card = b.closest('.item'); var it = byId(card.dataset.id); if (!it) return;
+    if (b.dataset.act === 'toggle') toggleDone(it, card);
+    else openEditor(it);
+  }
+  $('dayList').addEventListener('click', onListClick);
+  $('komendList').addEventListener('click', onListClick);
+
+  var pendingRender = null;
+  function toggleDone(it, card) {
+    it.done = !it.done;
+    it.doneAt = it.done ? Date.now() : null;
+    persist();
+    if (state.view === 'komend' && it.done && card) {
+      // Even het vinkje tonen voordat het item uit "Komend" verdwijnt
+      card.classList.add('done');
+      clearTimeout(pendingRender);
+      pendingRender = setTimeout(function () { card.style.opacity = '0'; }, 450);
+      setTimeout(render, 750);
+    } else {
+      render();
+    }
+    toast(it.done ? 'Afgevinkt' : 'Weer opengezet', 'Ongedaan maken', function () {
+      it.done = !it.done; it.doneAt = it.done ? Date.now() : null; persist(); render();
+    });
+  }
+
+  $('tabAgenda').onclick = function () { state.view = 'agenda'; render(); window.scrollTo(0, 0); };
+  $('tabKomend').onclick = function () { state.view = 'komend'; render(); window.scrollTo(0, 0); };
+  $('goToday').onclick = function () {
+    var t = todayKey(); state.view = 'agenda'; state.selected = t; state.month = t.slice(0, 7); render(); window.scrollTo(0, 0);
+  };
+  $('fab').onclick = function () { openEditor(null); };
+
+  /* ================= lagen ================= */
+  var stack = [];
+  function pushLayer(html, onClose) {
+    var el = document.createElement('div');
+    el.className = 'layer';
+    el.innerHTML = html;
+    $('layers').appendChild(el);
+    var layer = { el: el, onClose: onClose };
+    stack.push(layer);
+    document.body.style.overflow = 'hidden';
+    return layer;
+  }
+  function closeTop() {
+    var l = stack.pop(); if (!l) return false;
+    l.el.remove();
+    if (l.onClose) l.onClose();
+    if (!stack.length) document.body.style.overflow = '';
+    return true;
+  }
+  function closeLayer(layer) {
+    while (stack.length && stack[stack.length - 1] !== layer) closeTop();
+    if (stack.length) closeTop();
+  }
+  // Android terugknop
+  window.handleBack = function () {
+    if (toastEl) hideToast();
+    return closeTop();
+  };
+  window.onAppResume = function () {
+    var t = todayKey();
+    if (t !== lastToday) {
+      if (state.selected === lastToday) { state.selected = t; state.month = t.slice(0, 7); }
+      lastToday = t;
+    }
+    render();
+  };
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) window.onAppResume(); });
+
+  /* ================= editor ================= */
+  function openEditor(it) {
+    var isNew = !it;
+    var d = it ? JSON.parse(JSON.stringify(it)) : {
+      title: '', date: state.view === 'agenda' ? state.selected : todayKey(),
+      allDay: false, time: '09:00', location: '', note: ''
+    };
+    if (!d.time) d.time = '09:00';
+
+    var html =
+      '<div class="editor">' +
+        '<div class="bar">' +
+          '<button class="iconbtn" data-x="close" aria-label="Sluiten">' + ICON.close + '</button>' +
+          '<h3>' + (isNew ? 'Nieuw' : 'Bewerken') + '</h3>' +
+          '<button class="savebtn" data-x="save">Opslaan</button>' +
+        '</div>' +
+        '<div class="form"><div class="form-inner">' +
+          '<div class="field"><label class="lbl" for="fTitle">Titel</label>' +
+            '<input class="inp" id="fTitle" maxlength="120" autocomplete="off" placeholder="Bijv. Ophalen huurauto" value="' + esc(d.title) + '">' +
+            '<div class="err hidden" id="fTitleErr">Vul een titel in.</div></div>' +
+          '<div class="field"><label class="lbl">Datum</label>' +
+            '<button class="inp pick" data-x="date">' + ICON.cal + '<span class="v" id="fDate"></span></button></div>' +
+          '<button class="card switchrow" data-x="allday"><span class="l">Hele dag<small>Geen vaste tijd</small></span><span class="sw" id="fAllDay"></span></button>' +
+          '<div class="field" id="fTimeWrap"><label class="lbl">Tijd (24-uurs)</label>' +
+            '<button class="inp pick" data-x="time">' + ICON.clock + '<span class="v" id="fTime"></span></button></div>' +
+          '<div class="field"><label class="lbl" for="fLoc">Locatie <span style="font-weight:400">(optioneel)</span></label>' +
+            '<input class="inp" id="fLoc" maxlength="160" autocomplete="off" placeholder="Bijv. Johan Adolf Pengel Airport" value="' + esc(d.location) + '"></div>' +
+          '<div class="field"><label class="lbl" for="fNote">Notitie <span style="font-weight:400">(optioneel)</span></label>' +
+            '<textarea class="inp" id="fNote" maxlength="2000" placeholder="Extra informatie">' + esc(d.note) + '</textarea></div>' +
+          (isNew ? '' :
+            '<button class="card switchrow" data-x="done"><span class="l">Afgerond</span><span class="sw" id="fDone"></span></button>' +
+            '<div class="actions">' +
+              '<button class="btn share" data-x="share">' + ICON.share + 'Delen</button>' +
+              '<button class="btn del" data-x="delete">' + ICON.trash + 'Verwijderen</button>' +
+            '</div>') +
+        '</div></div>' +
+      '</div>';
+
+    var layer = pushLayer(html);
+    var root = layer.el;
+    var q = function (id) { return root.querySelector('#' + id); };
+
+    function readInputs() {
+      d.title = q('fTitle').value.trim();
+      d.location = q('fLoc').value.trim();
+      d.note = q('fNote').value.trim();
+    }
+    function paint() {
+      q('fDate').textContent = cap(datumLang(d.date, true));
+      q('fAllDay').classList.toggle('on', !!d.allDay);
+      q('fTimeWrap').classList.toggle('hidden', !!d.allDay);
+      q('fTime').textContent = d.time + ' uur';
+      if (!isNew) q('fDone').classList.toggle('on', !!d.done);
+    }
+    paint();
+    if (isNew) setTimeout(function () { q('fTitle').focus(); }, 220);
+    q('fTitle').addEventListener('input', function () {
+      q('fTitle').classList.remove('error'); q('fTitleErr').classList.add('hidden');
+    });
+
+    root.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-x]'); if (!b) return;
+      var x = b.dataset.x;
+      if (x === 'close') closeLayer(layer);
+      else if (x === 'date') { readInputs(); openDatePicker(d.date, function (k) { d.date = k; paint(); }); }
+      else if (x === 'time') { readInputs(); openTimePicker(d.time, function (t) { d.time = t; paint(); }); }
+      else if (x === 'allday') { d.allDay = !d.allDay; paint(); }
+      else if (x === 'done') { d.done = !d.done; paint(); }
+      else if (x === 'save') {
+        readInputs();
+        if (!d.title) {
+          q('fTitle').classList.add('error'); q('fTitleErr').classList.remove('hidden'); q('fTitle').focus();
+          return;
+        }
+        var rec = {
+          id: isNew ? uid() : it.id,
+          title: d.title, date: d.date, allDay: !!d.allDay,
+          time: d.allDay ? null : d.time,
+          location: d.location, note: d.note,
+          done: isNew ? false : !!d.done,
+          doneAt: isNew ? null : (d.done ? (it.doneAt || Date.now()) : null),
+          created: isNew ? Date.now() : (it.created || Date.now())
+        };
+        if (isNew) items.push(rec);
+        else items[items.indexOf(it)] = rec;
+        persist();
+        if (state.view === 'agenda') { state.selected = rec.date; state.month = rec.date.slice(0, 7); }
+        closeLayer(layer);
+        render();
+        toast(isNew ? 'Toegevoegd' : 'Wijzigingen opgeslagen');
+      }
+      else if (x === 'share') {
+        readInputs();
+        // Deel wat er nu op het scherm staat
+        shareItem({ title: d.title || it.title, date: d.date, allDay: !!d.allDay,
+          time: d.allDay ? null : d.time, location: d.location, note: d.note });
+      }
+      else if (x === 'delete') {
+        confirmDelete(it, function () { closeLayer(layer); });
+      }
+    });
+  }
+
+  /* ================= datumkiezer ================= */
+  function openDatePicker(current, onPick) {
+    var month = current.slice(0, 7);
+    var layer = pushLayer('<div class="scrim" data-x="close"></div><div class="sheet"><div class="grab"></div><h4>Kies een datum</h4><div id="dpCal"></div>' +
+      '<div class="actions"><button class="btn ghost" data-x="close">Annuleren</button><button class="btn primary" data-x="today">Vandaag</button></div></div>');
+    var calEl = layer.el.querySelector('#dpCal');
+    function draw() {
+      renderCalendar(calEl, {
+        month: month, selected: current, dots: false,
+        onPick: function (k) { onPick(k); closeLayer(layer); },
+        onMonth: function (mo) { month = mo; draw(); }
+      });
+    }
+    draw();
+    layer.el.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-x]'); if (!b) return;
+      if (b.dataset.x === 'close') closeLayer(layer);
+      if (b.dataset.x === 'today') { onPick(todayKey()); closeLayer(layer); }
+    });
+  }
+
+  /* ================= 24-uurs tijdkiezer ================= */
+  function openTimePicker(current, onPick) {
+    var h = +current.slice(0, 2), m = +current.slice(3, 5);
+    var html = '<div class="scrim" data-x="close"></div><div class="sheet"><div class="grab"></div><h4>Kies een tijd</h4>' +
+      '<div class="tp-display" id="tpShow"></div>' +
+      '<div class="tp-label">Uur</div><div class="tp-grid" id="tpH"></div>' +
+      '<div class="tp-label">Minuten</div><div class="tp-grid" id="tpM"></div>' +
+      '<div class="tp-fine"><button data-x="m-1" aria-label="Eén minuut eerder">−1</button><span>minuut</span><button data-x="m+1" aria-label="Eén minuut later">+1</button></div>' +
+      '<div class="actions"><button class="btn ghost" data-x="close">Annuleren</button><button class="btn primary" data-x="ok">Klaar</button></div></div>';
+    var layer = pushLayer(html);
+    var root = layer.el;
+    function draw() {
+      root.querySelector('#tpShow').textContent = pad(h) + ':' + pad(m);
+      var hh = ''; for (var i = 0; i < 24; i++) hh += '<button class="tp-cell' + (i === h ? ' on' : '') + '" data-h="' + i + '">' + pad(i) + '</button>';
+      var mm = ''; for (var j = 0; j < 60; j += 5) mm += '<button class="tp-cell' + (j === m ? ' on' : '') + '" data-m="' + j + '">' + pad(j) + '</button>';
+      root.querySelector('#tpH').innerHTML = hh;
+      root.querySelector('#tpM').innerHTML = mm;
+    }
+    draw();
+    root.addEventListener('click', function (e) {
+      var b = e.target.closest('button,[data-x]'); if (!b) return;
+      if (b.dataset.h != null) { h = +b.dataset.h; draw(); }
+      else if (b.dataset.m != null) { m = +b.dataset.m; draw(); }
+      else if (b.dataset.x === 'm-1') { m = (m + 59) % 60; draw(); }
+      else if (b.dataset.x === 'm+1') { m = (m + 1) % 60; draw(); }
+      else if (b.dataset.x === 'ok') { onPick(pad(h) + ':' + pad(m)); closeLayer(layer); }
+      else if (b.dataset.x === 'close') closeLayer(layer);
+    });
+  }
+
+  /* ================= verwijderen ================= */
+  function whenText(it) {
+    return cap(datumLang(it.date, true)) + ' · ' + (it.allDay ? 'Hele dag' : it.time + ' uur');
+  }
+  function confirmDelete(it, after) {
+    var layer = pushLayer('<div class="scrim" data-x="no"></div><div class="dialog" role="alertdialog">' +
+      '<h4>Verwijderen?</h4><p>Weet je zeker dat je dit item wilt verwijderen? Dit kan niet ongedaan worden gemaakt.</p>' +
+      '<div class="what"><b>' + esc(it.title) + '</b><span>' + esc(whenText(it)) + '</span></div>' +
+      '<div class="actions"><button class="btn ghost" data-x="no">Annuleren</button><button class="btn danger" data-x="yes">Verwijderen</button></div></div>');
+    layer.el.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-x]'); if (!b) return;
+      if (b.dataset.x === 'no') closeLayer(layer);
+      if (b.dataset.x === 'yes') {
+        items = items.filter(function (x) { return x.id !== it.id; });
+        persist();
+        closeLayer(layer);
+        if (after) after();
+        render();
+        toast('“' + it.title + '” verwijderd');
+      }
+    });
+  }
+
+  /* ================= delen ================= */
+  function shareText(it) {
+    var lines = [it.title];
+    lines.push('Datum: ' + datumLang(it.date, true));
+    lines.push('Tijd: ' + (it.allDay ? 'hele dag' : it.time + ' uur'));
+    if (it.location) lines.push('Locatie: ' + it.location);
+    if (it.note) lines.push('Notitie: ' + it.note);
+    return lines.join('\n');
+  }
+  function shareItem(it) {
+    var text = shareText(it);
+    window.__lastShare = text; // voor tests
+    if (window.AndroidBridge) { window.AndroidBridge.share(text); return; }
+    if (navigator.share) { navigator.share({ text: text }).catch(function () {}); return; }
+    try { navigator.clipboard.writeText(text); toast('Tekst gekopieerd'); } catch (e) { toast('Delen niet beschikbaar'); }
+  }
+
+  /* ================= melding onderin ================= */
+  var toastEl = null, toastTimer = null;
+  function hideToast() { if (toastEl) { toastEl.remove(); toastEl = null; } clearTimeout(toastTimer); }
+  function toast(msg, actionLabel, action) {
+    hideToast();
+    toastEl = document.createElement('div');
+    toastEl.className = 'toast';
+    toastEl.innerHTML = '<span>' + esc(msg) + '</span>' + (actionLabel ? '<button>' + esc(actionLabel) + '</button>' : '');
+    if (actionLabel) toastEl.querySelector('button').onclick = function () { hideToast(); action(); };
+    document.body.appendChild(toastEl);
+    toastTimer = setTimeout(hideToast, actionLabel ? 4500 : 2200);
+  }
+
+  window.__todo = { shareText: shareText, getItems: function () { return items; } }; // voor tests
+  render();
+})();
+</script>
+</body>
+</html>

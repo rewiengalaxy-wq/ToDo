@@ -1,0 +1,53 @@
+name: Bouw ToDo.apk
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code ophalen
+        uses: actions/checkout@v4
+
+      - name: Java 17 installeren
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK installeren
+        uses: android-actions/setup-android@v3
+
+      - name: Gradle instellen
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: APK bouwen (debug-ondertekend)
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon assembleDebug
+
+      - name: Hernoemen naar ToDo.apk
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk ToDo.apk
+          ls -l ToDo.apk
+
+      - name: ToDo.apk uploaden als download (Actions-artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ToDo-apk
+          path: ToDo.apk
+          if-no-files-found: error
+
+      - name: ToDo.apk publiceren als release (directe downloadlink)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: ToDo build ${{ github.run_number }}
+          files: ToDo.apk
+          make_latest: true
